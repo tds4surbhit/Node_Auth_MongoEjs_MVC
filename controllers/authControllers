@@ -1,63 +1,77 @@
 const User = require("../models/user");
-const jwt = require('jsonwebtoken');
+const jwt = require("jsonwebtoken");
 
 // Error Handling
 const handleErrors = (err) => {
-    console.log(err.message, err.code);
-    let errors = { email : '' , password : ''};
+  console.log(err.message, err.code);
+  let errors = { email: "", password: "" };
 
-    // validation errors -->
-    if(err.message.includes('user Validation failed')){
-        Object.values(err.errors).forEach(({properties}) => {
-            errors[properties.path] = properties.message; 
-        })
+    //Incorrect Email -->
+    if(err.message === 'incorrect email'){
+        errors.email = 'that email is not registered'
     }
 
-    // Duplicate Error Code -->
-    if(err.code === 11000){
-        errors.email = 'That email is already Registered'
-        return errors;
+    //Incorrect Password -->
+     if(err.message === 'incorrect email'){
+        errors.email = 'that password was incorrect'
     }
 
+  // validation errors -->
+  if (err.message.includes("user Validation failed")) {
+    Object.values(err.errors).forEach(({ properties }) => {
+      errors[properties.path] = properties.message;
+    });
+  }
+
+  // Duplicate Error Code -->
+  if (err.code === 11000) {
+    errors.email = "That email is already Registered";
     return errors;
-}
+  }
+
+  return errors;
+};
 
 // Generating JSON Web Token for users -->
 const maxAge = 3 * 24 * 60 * 60;
 const createToken = (id) => {
-    return jwt.sign({id}, 'surbhit sinha secret' , {
-        expiresIn: maxAge
+  return jwt.sign({ id }, "surbhit sinha secret", {
+    expiresIn: maxAge,
+  });
+};
+
+module.exports.signup_get = (req, res) => {
+  res.render("signup");
+};
+
+module.exports.signup_post = async (req, res) => {
+  const { email, password } = req.body;
+
+  try {
+    const user = await User.create({
+      email: email,
+      password: password,
     });
-}
+    const token = createToken(user._id);
+    res.cookie("jwt", token, { httpOnly: true, maxAge: maxAge * 1000 });
+    res.status(201).json({ user: user._id });
+  } catch (err) {
+    handleErrors(err);
+  }
+};
 
-module.exports.signup_get = (req,res) => {
-    res.render('signup')
-}
+module.exports.login_get = (req, res) => {
+  res.render("signup");
+};
 
-module.exports.signup_post = async (req,res) => {
-    const { email , password } = req.body;
-   
-    try{
-        const user = await User.create({
-            email: email,
-            password: password
-        })
-        const token = createToken(user._id)
-        res.cookie('jwt', token, { httpOnly: true, maxAge: maxAge*1000});
-        res.status(201).json({user : user._id});
-    } catch (err) {
-        handleErrors(err);
-    }   
-}
-
-module.exports.login_get = (req,res) => {
-    res.render('signup')
-}
-
-module.exports.login_post = (req,res) => {
-    console.log(req.body);
-    const { email , password} = req.body;
-    console.log("Email",email);
-    console.log("Password",password);
-    res.render('user login')
-}
+module.exports.login_post = async (req, res) => {
+  console.log(req.body);
+  try {
+    const user = await User.login(email, password);
+    const token = createToken(user._id);
+    res.cookie("jwt", token, { httpOnly: true, maxAge: maxAge * 1000 });
+    res.status(201).json({ user: user._id });
+  } catch (err) {
+    res.status(400).json({ errors });
+  }
+};
